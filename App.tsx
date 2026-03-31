@@ -8,13 +8,16 @@ import React, { useEffect } from 'react';
 import { Linking, StatusBar } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { OnboardingNavigator } from './src/screens/onboarding/OnboardingNavigator';
-import { SessionScreen } from './src/screens/main/SessionScreen';
+import { MainNavigator } from './src/screens/main/MainNavigator';
 import { useUserStore } from './src/store/userStore';
+import { usePushNotifications } from './src/notifications/PushSetup';
 
 function App() {
   const hasOnboarded = useUserStore((s) => s.hasOnboarded);
   const isDemoMode = useUserStore((s) => s.isDemoMode);
   const setIsDemoMode = useUserStore((s) => s.setIsDemoMode);
+
+  usePushNotifications();
 
   // Handle deep link: companionos://demo
   useEffect(() => {
@@ -40,7 +43,7 @@ function App() {
       {!hasOnboarded && !isDemoMode ? (
         <OnboardingNavigator onComplete={() => {}} />
       ) : (
-        <SessionScreen />
+        <MainNavigator />
       )}
     </SafeAreaProvider>
   );
