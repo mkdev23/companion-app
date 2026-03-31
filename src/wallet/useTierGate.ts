@@ -44,9 +44,9 @@ export function buildGate(tier: CompanionTier): TierGate {
     upgradeMessage: (feature: string) => {
       if (tier === 'BUILDER') return '';
       const next: Record<CompanionTier, string> = {
-        FREE:    'Hold 100 $COMPANION (HOLDER tier)',
-        HOLDER:  'Hold 1,000 $COMPANION (STAKER tier)',
-        STAKER:  'Hold 10,000 $COMPANION (BUILDER tier)',
+        FREE:    'Hold 10,000 $COMPANION (HOLDER tier)',
+        HOLDER:  'Hold 1,500,000 $COMPANION (STAKER tier)',
+        STAKER:  'Hold 15,000,000 $COMPANION — 1.5% supply (BUILDER tier)',
         BUILDER: '',
       };
       return `${feature} requires ${next[tier]}. Get $COMPANION at companion-os.xyz/token`;
