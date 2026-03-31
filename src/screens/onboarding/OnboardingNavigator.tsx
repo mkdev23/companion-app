@@ -1,5 +1,11 @@
 import React, { useState } from 'react';
+import { Platform } from 'react-native';
 import { useUserStore } from '../../store/userStore';
+
+function generateUserId(): string {
+  const rand = () => Math.random().toString(36).slice(2, 9);
+  return `u_${Date.now().toString(36)}_${rand()}`;
+}
 import { WelcomeScreen } from './01_WelcomeScreen';
 import { NameCompanionScreen } from './02_NameCompanionScreen';
 import { ChooseAvatarScreen } from './03_ChooseAvatarScreen';
@@ -86,7 +92,36 @@ export function OnboardingNavigator({ onComplete }: Props) {
       return (
         <LaunchScreen
           companionName={store.companionName}
-          onLaunch={() => {
+          onLaunch={async () => {
+            // Generate stable userId if not yet set
+            const userId = store.userId || generateUserId();
+            if (!store.userId) store.setUserId(userId);
+
+            // Provision workspace on CompanionClaw
+            const host = store.companionClawHost;
+            if (host) {
+              try {
+                await fetch(`${host}/onboard`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    userId,
+                    companionName: store.companionName,
+                    userName: store.userName,
+                    userBrief: store.userBrief,
+                    archetypeId: store.archetypeId,
+                    ageVerified: store.ageVerified,
+                    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                    fcmToken: store.fcmToken,
+                    geminiApiKey: store.useHostedKey ? undefined : store.geminiApiKey,
+                    platform: Platform.OS,
+                  }),
+                });
+              } catch {
+                // Backend offline — app works without it
+              }
+            }
+
             store.setHasOnboarded(true);
             onComplete();
           }}

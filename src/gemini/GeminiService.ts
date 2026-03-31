@@ -42,9 +42,7 @@ export class GeminiService {
 
     // 1. Fetch soul + memory from CompanionClaw (non-blocking fallback)
     let soul = { soul: '', user: '', memory: '' };
-    const userId = store.userName
-      ? `${store.userName.toLowerCase().replace(/\s+/g, '-')}-companion`
-      : 'guest';
+    const userId = store.userId || 'guest';
 
     if (store.companionClawHost) {
       this.clawClient = new CompanionClawClient(store.companionClawHost, userId);

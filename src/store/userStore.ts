@@ -6,7 +6,10 @@ export type CompanionTier = 'FREE' | 'HOLDER' | 'STAKER' | 'BUILDER';
 
 export interface UserStore {
   hasOnboarded: boolean;
+  userId: string;           // stable UUID, generated once on first onboarding
   companionName: string;
+  archetypeId: string;      // personality archetype from PersonalityGenome
+  ageVerified: boolean;     // unlocks NSFW archetypes
   userName: string;
   userBrief: string;
   selectedVrmUrl: string;
@@ -24,6 +27,9 @@ export interface UserStore {
   companionTier: CompanionTier;
 
   // setters
+  setUserId: (v: string) => void;
+  setArchetypeId: (v: string) => void;
+  setAgeVerified: (v: boolean) => void;
   setHasOnboarded: (v: boolean) => void;
   setCompanionName: (v: string) => void;
   setUserName: (v: string) => void;
@@ -46,6 +52,9 @@ export interface UserStore {
 
 const DEFAULTS = {
   hasOnboarded: false,
+  userId: '',              // generated in OnboardingNavigator on first launch
+  archetypeId: 'aria',
+  ageVerified: false,
   companionName: 'Aria',
   userName: '',
   userBrief: '',
@@ -68,6 +77,9 @@ export const useUserStore = create<UserStore>()(
   persist(
     (set) => ({
       ...DEFAULTS,
+      setUserId: (v) => set({ userId: v }),
+      setArchetypeId: (v) => set({ archetypeId: v }),
+      setAgeVerified: (v) => set({ ageVerified: v }),
       setHasOnboarded: (v) => set({ hasOnboarded: v }),
       setCompanionName: (v) => set({ companionName: v }),
       setUserName: (v) => set({ userName: v }),
