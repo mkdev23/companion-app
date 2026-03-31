@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
-import { Alert, FlatList, Modal, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { WebView, WebViewMessageEvent } from 'react-native-webview';
 import { useTierGate } from '../../wallet/useTierGate';
+import { useUserStore } from '../../store/userStore';
 
 const PRESET_VRMS = [
-  { id: 'aria', label: 'Aria', url: 'asset://presets/aria.vrm', emoji: '👩' },
-  { id: 'nova', label: 'Nova', url: 'asset://presets/nova.vrm', emoji: '🌟' },
-  { id: 'orion', label: 'Orion', url: 'asset://presets/orion.vrm', emoji: '🧑' },
-  { id: 'vex', label: 'Vex', url: 'asset://presets/vex.vrm', emoji: '🤖' },
-  { id: 'rpm', label: 'Ready Player Me', url: '', emoji: '🎨' },
+  { id: 'aria',   label: 'Aria',   url: 'asset://presets/aria.vrm',   emoji: '👩' },
+  { id: 'nova',   label: 'Nova',   url: 'asset://presets/nova.vrm',   emoji: '🌟' },
+  { id: 'orion',  label: 'Orion',  url: 'asset://presets/orion.vrm',  emoji: '🧑' },
+  { id: 'vex',    label: 'Vex',    url: 'asset://presets/vex.vrm',    emoji: '🤖' },
+  { id: 'create', label: 'Create', url: '',                           emoji: '✨' },
 ];
 
 interface Props {
@@ -16,35 +18,76 @@ interface Props {
 }
 
 export function ChooseAvatarScreen({ initialUrl, onNext }: Props) {
-  const [selectedUrl, setSelectedUrl] = useState(initialUrl || PRESET_VRMS[0].url);
-  const [rpmModalVisible, setRpmModalVisible] = useState(false);
-  const [rpmUrl, setRpmUrl] = useState('');
+  const [selectedUrl, setSelectedUrl]       = useState(initialUrl || PRESET_VRMS[0].url);
+  const [avaturnVisible, setAvaturnVisible] = useState(false);
+  const [avaturnUrl, setAvaturnUrl]         = useState<string | null>(null);
+  const [loadingSession, setLoadingSession] = useState(false);
   const gate = useTierGate();
+  const { companionClawHost } = useUserStore();
+
+  const openAvaturn = async () => {
+    if (!gate.canUseAvatarCreate) {
+      Alert.alert('Upgrade required', gate.upgradeMessage('Avaturn avatar creator'));
+      return;
+    }
+    setLoadingSession(true);
+    try {
+      const res = await fetch(`${companionClawHost}/avaturn/session`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: 'guest' }),
+      });
+      if (!res.ok) throw new Error('session failed');
+      const { sessionUrl } = await res.json() as { sessionUrl: string };
+      setAvaturnUrl(sessionUrl);
+      setAvaturnVisible(true);
+    } catch {
+      Alert.alert('Avatar creator unavailable', 'Upload a .vrm file from VRoid Hub instead.');
+    } finally {
+      setLoadingSession(false);
+    }
+  };
 
   const handleSelect = (item: typeof PRESET_VRMS[0]) => {
-    if (item.id === 'rpm') {
-      if (!gate.canUseRpm) {
-        Alert.alert('Upgrade required', gate.upgradeMessage('Ready Player Me import'));
-        return;
-      }
-      setRpmModalVisible(true);
+    if (item.id === 'create') {
+      openAvaturn();
     } else {
       setSelectedUrl(item.url);
     }
   };
 
-  const handleRpmConfirm = () => {
-    if (rpmUrl.trim()) {
-      setSelectedUrl(rpmUrl.trim());
-    }
-    setRpmModalVisible(false);
+  // Fired when Avaturn iframe posts the export event
+  const handleWebViewMessage = (e: WebViewMessageEvent) => {
+    try {
+      const msg = JSON.parse(e.nativeEvent.data);
+      if (msg?.source === 'avaturn' && msg?.eventName === 'export') {
+        const glbUrl: string = msg?.data?.url;
+        if (glbUrl) {
+          setSelectedUrl(glbUrl);
+          setAvaturnVisible(false);
+        }
+      }
+    } catch {}
   };
+
+  // Inject JS to forward postMessage events from Avaturn to React Native
+  const INJECT = `
+    (function() {
+      const orig = window.postMessage;
+      window.addEventListener('message', function(e) {
+        if (e.data && e.data.source === 'avaturn') {
+          window.ReactNativeWebView.postMessage(JSON.stringify(e.data));
+        }
+      });
+    })();
+    true;
+  `;
 
   return (
     <View style={styles.container}>
       <Text style={styles.step}>Step 3 of 8</Text>
       <Text style={styles.title}>Choose your avatar</Text>
-      <Text style={styles.body}>Pick a preset or import from Ready Player Me.</Text>
+      <Text style={styles.body}>Pick a preset or create your own with Avaturn.</Text>
 
       <FlatList
         data={PRESET_VRMS}
@@ -53,13 +96,17 @@ export function ChooseAvatarScreen({ initialUrl, onNext }: Props) {
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
         renderItem={({ item }) => {
-          const isActive = item.id !== 'rpm' && selectedUrl === item.url;
+          const isActive = item.id !== 'create' && selectedUrl === item.url;
           return (
             <TouchableOpacity
               style={[styles.card, isActive && styles.cardActive]}
               onPress={() => handleSelect(item)}
+              disabled={loadingSession && item.id === 'create'}
             >
-              <Text style={styles.cardEmoji}>{item.emoji}</Text>
+              {loadingSession && item.id === 'create'
+                ? <ActivityIndicator color="#00d4ff" />
+                : <Text style={styles.cardEmoji}>{item.emoji}</Text>
+              }
               <Text style={[styles.cardLabel, isActive && styles.cardLabelActive]}>{item.label}</Text>
             </TouchableOpacity>
           );
@@ -70,26 +117,24 @@ export function ChooseAvatarScreen({ initialUrl, onNext }: Props) {
         <Text style={styles.buttonText}>Continue</Text>
       </TouchableOpacity>
 
-      <Modal visible={rpmModalVisible} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalSheet}>
-            <Text style={styles.modalTitle}>Ready Player Me URL</Text>
-            <Text style={styles.modalBody}>Paste the .glb or .vrm URL from readyplayer.me</Text>
-            <TextInput
-              style={styles.modalInput}
-              value={rpmUrl}
-              onChangeText={setRpmUrl}
-              placeholder="https://models.readyplayer.me/..."
-              placeholderTextColor="#ffffff44"
-              autoCapitalize="none"
-            />
-            <TouchableOpacity style={styles.button} onPress={handleRpmConfirm}>
-              <Text style={styles.buttonText}>Use this avatar</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.cancel} onPress={() => setRpmModalVisible(false)}>
-              <Text style={styles.cancelText}>Cancel</Text>
+      {/* Avaturn creator modal */}
+      <Modal visible={avaturnVisible} animationType="slide" onRequestClose={() => setAvaturnVisible(false)}>
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalHeaderText}>Create avatar — tap Export when done</Text>
+            <TouchableOpacity onPress={() => setAvaturnVisible(false)} style={styles.modalClose}>
+              <Text style={styles.modalCloseText}>✕</Text>
             </TouchableOpacity>
           </View>
+          {avaturnUrl ? (
+            <WebView
+              source={{ uri: avaturnUrl }}
+              style={styles.webview}
+              injectedJavaScriptBeforeContentLoaded={INJECT}
+              onMessage={handleWebViewMessage}
+              mediaPlaybackRequiresUserAction={false}
+            />
+          ) : null}
         </View>
       </Modal>
     </View>
@@ -97,23 +142,22 @@ export function ChooseAvatarScreen({ initialUrl, onNext }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0a0e1a', padding: 32, justifyContent: 'center' },
-  step: { color: '#ffffff44', fontSize: 13, marginBottom: 8 },
-  title: { color: '#ffffff', fontSize: 28, fontWeight: '700', marginBottom: 12 },
-  body: { color: '#ffffffaa', fontSize: 16, lineHeight: 24, marginBottom: 32 },
-  list: { paddingBottom: 32, gap: 12 },
-  card: { width: 100, alignItems: 'center', padding: 16, borderRadius: 16, backgroundColor: '#ffffff11', borderWidth: 1, borderColor: '#ffffff22', marginRight: 12 },
-  cardActive: { backgroundColor: '#00d4ff22', borderColor: '#00d4ff' },
-  cardEmoji: { fontSize: 32, marginBottom: 8 },
-  cardLabel: { color: '#ffffffaa', fontSize: 13 },
+  container:       { flex: 1, backgroundColor: '#0a0e1a', padding: 32, justifyContent: 'center' },
+  step:            { color: '#ffffff44', fontSize: 13, marginBottom: 8 },
+  title:           { color: '#ffffff', fontSize: 28, fontWeight: '700', marginBottom: 12 },
+  body:            { color: '#ffffffaa', fontSize: 16, lineHeight: 24, marginBottom: 32 },
+  list:            { paddingBottom: 32, gap: 12 },
+  card:            { width: 100, alignItems: 'center', padding: 16, borderRadius: 16, backgroundColor: '#ffffff11', borderWidth: 1, borderColor: '#ffffff22', marginRight: 12 },
+  cardActive:      { backgroundColor: '#00d4ff22', borderColor: '#00d4ff' },
+  cardEmoji:       { fontSize: 32, marginBottom: 8 },
+  cardLabel:       { color: '#ffffffaa', fontSize: 13 },
   cardLabelActive: { color: '#00d4ff', fontWeight: '600' },
-  button: { backgroundColor: '#00d4ff', paddingVertical: 16, borderRadius: 32, alignItems: 'center', marginTop: 8 },
-  buttonText: { color: '#0a0e1a', fontSize: 18, fontWeight: '700' },
-  modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: '#00000088' },
-  modalSheet: { backgroundColor: '#0f1524', padding: 32, borderTopLeftRadius: 24, borderTopRightRadius: 24 },
-  modalTitle: { color: '#ffffff', fontSize: 20, fontWeight: '700', marginBottom: 8 },
-  modalBody: { color: '#ffffffaa', fontSize: 14, marginBottom: 20 },
-  modalInput: { backgroundColor: '#ffffff11', color: '#ffffff', fontSize: 14, paddingHorizontal: 16, paddingVertical: 12, borderRadius: 10, borderWidth: 1, borderColor: '#ffffff22', marginBottom: 16 },
-  cancel: { alignItems: 'center', marginTop: 12 },
-  cancelText: { color: '#ffffff66', fontSize: 16 },
+  button:          { backgroundColor: '#00d4ff', paddingVertical: 16, borderRadius: 32, alignItems: 'center', marginTop: 8 },
+  buttonText:      { color: '#0a0e1a', fontSize: 18, fontWeight: '700' },
+  modalContainer:  { flex: 1, backgroundColor: '#0a0e1a' },
+  modalHeader:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#ffffff15' },
+  modalHeaderText: { color: '#ffffffaa', fontSize: 14, flex: 1 },
+  modalClose:      { padding: 8 },
+  modalCloseText:  { color: '#ffffff66', fontSize: 18 },
+  webview:         { flex: 1 },
 });

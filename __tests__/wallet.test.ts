@@ -22,7 +22,7 @@ describe('resolveCompanionTier', () => {
 describe('buildGate — FREE tier', () => {
   const gate = buildGate('FREE');
   it('tier is FREE',                   () => expect(gate.tier).toBe('FREE'));
-  it('canUseRpm is false',             () => expect(gate.canUseRpm).toBe(false));
+  it('canUseAvatarCreate is false',             () => expect(gate.canUseAvatarCreate).toBe(false));
   it('canUseFullVrmLibrary is false',  () => expect(gate.canUseFullVrmLibrary).toBe(false));
   it('maxCompanions is 1',             () => expect(gate.maxCompanions).toBe(1));
   it('memoryDays is 7',                () => expect(gate.memoryDays).toBe(7));
@@ -38,7 +38,7 @@ describe('buildGate — FREE tier', () => {
 
 describe('buildGate — HOLDER tier', () => {
   const gate = buildGate('HOLDER');
-  it('canUseRpm is true',               () => expect(gate.canUseRpm).toBe(true));
+  it('canUseAvatarCreate is true',               () => expect(gate.canUseAvatarCreate).toBe(true));
   it('canUseFullVrmLibrary is true',    () => expect(gate.canUseFullVrmLibrary).toBe(true));
   it('maxCompanions is 1',              () => expect(gate.maxCompanions).toBe(1));
   it('memoryDays is 90',                () => expect(gate.memoryDays).toBe(90));
