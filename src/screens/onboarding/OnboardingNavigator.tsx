@@ -6,6 +6,17 @@ function generateUserId(): string {
   const rand = () => Math.random().toString(36).slice(2, 9);
   return `u_${Date.now().toString(36)}_${rand()}`;
 }
+
+// Gemini Live voice per archetype — mirrors PersonalityGenome.ts
+const ARCHETYPE_GEMINI_VOICE: Record<string, string> = {
+  nova:      'Kore',    // bright, curious
+  aria:      'Aoede',   // warm, empathic
+  orion:     'Charon',  // deep, analytical
+  vex:       'Fenrir',  // bold, energetic
+  kira:      'Puck',    // playful, creative
+  sakura:    'Aoede',   // soft, intimate
+  'vex-dark':'Charon',  // commanding, deep
+};
 import { WelcomeScreen } from './01_WelcomeScreen';
 import { NameCompanionScreen } from './02_NameCompanionScreen';
 import { ChooseAvatarScreen } from './03_ChooseAvatarScreen';
@@ -96,6 +107,10 @@ export function OnboardingNavigator({ onComplete }: Props) {
             // Generate stable userId if not yet set
             const userId = store.userId || generateUserId();
             if (!store.userId) store.setUserId(userId);
+
+            // Lock in the Gemini voice for this archetype
+            const geminiVoice = ARCHETYPE_GEMINI_VOICE[store.archetypeId] ?? 'Aoede';
+            store.setGeminiVoice(geminiVoice);
 
             // Provision workspace on CompanionClaw
             const host = store.companionClawHost;

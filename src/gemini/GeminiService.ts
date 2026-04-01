@@ -48,6 +48,12 @@ export class GeminiService {
       this.clawClient = new CompanionClawClient(store.companionClawHost, userId);
       soul = await this.clawClient.fetchSoul();
       this.clawClient.connectSession(store.fcmToken ?? undefined);
+      // Report client surface so CompanionClaw adapts system prompt
+      this.clawClient.reportClientState(
+        store.glassesEnabled ? 'glasses' : 'phone',
+        store.glassesEnabled,
+        require('react-native').Platform.OS,
+      );
     }
 
     // 2. Build system prompt with soul + memory injected
@@ -85,20 +91,36 @@ export class GeminiService {
     };
   }
 
-  private sendSetup(systemPrompt: string): void {
+  private sendSetup(systemPrompt: string, isNsfw: boolean = false): void {
     if (!this.ws) return;
-    const setup = {
+
+    const store = useUserStore.getState();
+    const archetypeId = store.archetypeId ?? '';
+    const nsfwArchetypes = new Set(['sakura', 'vex-dark']);
+    const nsfw = isNsfw || nsfwArchetypes.has(archetypeId);
+
+    const setup: Record<string, unknown> = {
       setup: {
         model: MODEL,
         generation_config: {
           response_modalities: ['AUDIO'],
           speech_config: {
-            voice_config: { prebuilt_voice_config: { voice_name: 'Aoede' } },
+            voice_config: { prebuilt_voice_config: { voice_name: store.geminiVoice ?? 'Aoede' } },
           },
         },
         system_instruction: { parts: [{ text: systemPrompt }] },
+        // NSFW: drop sexually explicit safety filter so character stays in role
+        ...(nsfw ? {
+          safety_settings: [
+            { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
+            { category: 'HARM_CATEGORY_HATE_SPEECH',       threshold: 'BLOCK_ONLY_HIGH' },
+            { category: 'HARM_CATEGORY_HARASSMENT',        threshold: 'BLOCK_ONLY_HIGH' },
+            { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_ONLY_HIGH' },
+          ],
+        } : {}),
       },
     };
+
     this.ws.send(JSON.stringify(setup));
   }
 
@@ -187,6 +209,11 @@ export class GeminiService {
       `and hold them as your understanding of who I am:\n\n${snippet}`,
     );
     store.setMemoryProcessed(true);
+  }
+
+  /** Called by SessionScreen when glasses connect/disconnect — notifies CompanionClaw. */
+  reportGlassesStatus(connected: boolean): void {
+    this.clawClient?.reportGlassesStatus(connected);
   }
 
   disconnect(): void {

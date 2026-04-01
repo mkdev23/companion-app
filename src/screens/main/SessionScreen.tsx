@@ -52,7 +52,12 @@ export function SessionScreen() {
       onFrame: (base64Jpeg) => geminiRef.current?.sendVideoFrame(base64Jpeg),
       onStatusChange: (status) => {
         setGlassesStatus(status);
-        // When glasses disconnect, phone camera picks up automatically
+        // Notify CompanionClaw when glasses connect/disconnect
+        if (status === 'CONNECTED') {
+          geminiRef.current?.reportGlassesStatus(true);
+        } else if (status === 'DISCONNECTED' || status === 'ERROR') {
+          geminiRef.current?.reportGlassesStatus(false);
+        }
       },
     });
     glassesRef.current = svc;

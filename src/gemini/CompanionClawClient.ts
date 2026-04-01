@@ -81,12 +81,24 @@ export class CompanionClawClient {
     this.send({ type: 'log_session', payload: { text } });
   }
 
+  /** Report glasses connection status to CompanionClaw so system prompt adapts. */
+  reportGlassesStatus(connected: boolean): void {
+    this.send({
+      type: connected ? 'glasses_connected' : 'glasses_disconnected',
+    });
+  }
+
+  /** Report any client surface change (glasses/phone/web/desktop). */
+  reportClientState(clientType: string, glassesConnected: boolean, platform?: string): void {
+    this.send({ type: 'client_state', payload: { clientType, glassesConnected, platform } });
+  }
+
   disconnect(): void {
     this.ws?.close();
     this.ws = null;
   }
 
-  private send(msg: object): void {
+  send(msg: object): void {
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify(msg));
     }

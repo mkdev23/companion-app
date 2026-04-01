@@ -9,6 +9,7 @@ export interface UserStore {
   userId: string;           // stable UUID, generated once on first onboarding
   companionName: string;
   archetypeId: string;      // personality archetype from PersonalityGenome
+  geminiVoice: string;      // Gemini Live built-in voice name (from archetype)
   ageVerified: boolean;     // unlocks NSFW archetypes
   userName: string;
   userBrief: string;
@@ -29,6 +30,7 @@ export interface UserStore {
   // setters
   setUserId: (v: string) => void;
   setArchetypeId: (v: string) => void;
+  setGeminiVoice: (v: string) => void;
   setAgeVerified: (v: boolean) => void;
   setHasOnboarded: (v: boolean) => void;
   setCompanionName: (v: string) => void;
@@ -54,6 +56,7 @@ const DEFAULTS = {
   hasOnboarded: false,
   userId: '',              // generated in OnboardingNavigator on first launch
   archetypeId: 'aria',
+  geminiVoice: 'Aoede',
   ageVerified: false,
   companionName: 'Aria',
   userName: '',
@@ -79,6 +82,7 @@ export const useUserStore = create<UserStore>()(
       ...DEFAULTS,
       setUserId: (v) => set({ userId: v }),
       setArchetypeId: (v) => set({ archetypeId: v }),
+      setGeminiVoice: (v) => set({ geminiVoice: v }),
       setAgeVerified: (v) => set({ ageVerified: v }),
       setHasOnboarded: (v) => set({ hasOnboarded: v }),
       setCompanionName: (v) => set({ companionName: v }),
